@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import Dashboard     from './components/Dashboard'
 import PeopleManager from './components/PeopleManager'
@@ -71,6 +71,48 @@ export default function App() {
   useEffect(() => {
     if (personId) fetchData()
     else setLoading(false)
+  }, [personId, fetchData])
+
+  // Refs para tener siempre los datos más recientes en el listener de Realtime
+  const peopleRef   = useRef(people)
+  const roomsRef    = useRef(rooms)
+  const personIdRef = useRef(personId)
+  useEffect(() => { peopleRef.current   = people   }, [people])
+  useEffect(() => { roomsRef.current    = rooms    }, [rooms])
+  useEffect(() => { personIdRef.current = personId }, [personId])
+
+  // Escuchar inserciones en completions y notificar a los demás
+  useEffect(() => {
+    if (!personId) return
+
+    const channel = supabase
+      .channel('completions-notify')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
+        const c = payload.new
+
+        // No notificar al que acaba de marcar la tarea
+        if (c.person_id === personIdRef.current) return
+        if (Notification.permission !== 'granted') return
+
+        const person = peopleRef.current.find(p => p.id === c.person_id)
+        const name   = person?.name ?? 'Alguien'
+
+        let title, body
+        if (c.task_type === 'dishwasher') {
+          title = '🍽️ Lavavajillas recogido'
+          body  = `${name} ha recogido el lavavajillas`
+        } else if (c.task_type === 'room') {
+          const room = roomsRef.current.find(r => r.id === c.room_id)
+          title = `${room?.emoji ?? '🏠'} Habitación limpiada`
+          body  = `${name} ha limpiado ${room?.name ?? 'una habitación'}`
+        }
+
+        if (title) new Notification(title, { body, icon: '/favicon.ico' })
+        fetchData()
+      })
+      .subscribe()
+
+    return () => supabase.removeChannel(channel)
   }, [personId, fetchData])
 
   function handleLogin(id) {
