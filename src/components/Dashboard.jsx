@@ -90,13 +90,19 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
 
   async function castVote(taskType, dueDate, targetPersonId, isAbsent) {
     if (!currentPerson) return
-    await supabase.from('absence_votes').upsert({
-      task_type:        taskType,
-      due_date:         dueDate,
-      target_person_id: targetPersonId,
-      voter_person_id:  currentPerson.id,
-      is_absent:        isAbsent,
-    }, { onConflict: 'task_type,due_date,target_person_id,voter_person_id' })
+    const existing = myVote(taskType, dueDate, targetPersonId)
+    // Si pulsa el mismo botón que ya tenía → desmarcar
+    if (existing && existing.is_absent === isAbsent) {
+      await supabase.from('absence_votes').delete().eq('id', existing.id)
+    } else {
+      await supabase.from('absence_votes').upsert({
+        task_type:        taskType,
+        due_date:         dueDate,
+        target_person_id: targetPersonId,
+        voter_person_id:  currentPerson.id,
+        is_absent:        isAbsent,
+      }, { onConflict: 'task_type,due_date,target_person_id,voter_person_id' })
+    }
     onRefresh()
   }
 
