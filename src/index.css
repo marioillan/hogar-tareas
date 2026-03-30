@@ -53,10 +53,46 @@ body {
 
 .header-top {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
   margin-bottom: 20px;
 }
+
+.header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-username {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.logout-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.logout-btn:hover { color: var(--danger); border-color: rgba(255,107,107,0.3); }
 
 .header h1 {
   font-family: 'DM Serif Display', serif;
@@ -618,6 +654,24 @@ main {
 .room-mark-btn:hover    { opacity: 0.88; }
 .room-mark-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+.room-locked {
+  font-size: 0.78rem;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.not-your-turn {
+  text-align: center;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 13px 16px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 /* ── Rooms Manager ───────────────────────────────────── */
 .rooms-manager {}
 
@@ -666,6 +720,111 @@ main {
   padding: 0;
 }
 .emoji-custom:focus { border-color: var(--primary-dim); }
+
+/* ── Login ───────────────────────────────────────────── */
+.login-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+}
+
+.login-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.5rem;
+  text-align: center;
+  margin-bottom: 24px;
+  letter-spacing: -0.02em;
+}
+
+.login-tabs {
+  display: flex;
+  background: var(--surface2);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.login-tab {
+  flex: 1;
+  padding: 9px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.login-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.login-field label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.login-field input {
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-field input::placeholder { color: var(--muted); }
+.login-field input:focus { border-color: var(--primary-dim); }
+
+.login-error {
+  font-size: 0.82rem;
+  color: var(--danger);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary);
+  color: #0f0f17;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  margin-top: 4px;
+}
+.login-btn:hover    { opacity: 0.88; }
+.login-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Responsive / Mobile ─────────────────────────────── */
 @media (max-width: 480px) {

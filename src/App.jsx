@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
-import Dashboard    from './components/Dashboard'
+import Dashboard     from './components/Dashboard'
 import PeopleManager from './components/PeopleManager'
 import RoomsManager  from './components/RoomsManager'
-import History      from './components/History'
+import History       from './components/History'
+import Login         from './components/Login'
 
 const TABS = [
   { id: 'dashboard', label: '🏠 Hoy' },
@@ -19,6 +20,7 @@ function todayFormatted() {
 }
 
 export default function App() {
+  const [personId,    setPersonId]    = useState(() => localStorage.getItem('hogar_person_id'))
   const [tab,         setTab]         = useState('dashboard')
   const [people,      setPeople]      = useState([])
   const [rooms,       setRooms]       = useState([])
@@ -57,14 +59,37 @@ export default function App() {
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    if (personId) fetchData()
+    else setLoading(false)
+  }, [personId, fetchData])
+
+  function handleLogin(id) {
+    localStorage.setItem('hogar_person_id', id)
+    setPersonId(id)
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('hogar_person_id')
+    setPersonId(null)
+  }
+
+  if (!personId) return <Login onLogin={handleLogin} />
+
+  const currentPerson = people.find(p => p.id === personId) ?? null
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-top">
           <h1>Tareas del Hogar</h1>
-          <span className="header-date">{todayFormatted()}</span>
+          <div className="header-right">
+            <span className="header-date">{todayFormatted()}</span>
+            <div className="header-user">
+              <span className="header-username">{currentPerson?.name ?? '…'}</span>
+              <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">↩</button>
+            </div>
+          </div>
         </div>
         <nav className="tabs">
           {TABS.map(t => (
@@ -93,6 +118,7 @@ export default function App() {
                 people={people}
                 rooms={rooms}
                 completions={completions}
+                currentPerson={currentPerson}
                 onRefresh={fetchData}
               />
             )}

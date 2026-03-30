@@ -2,7 +2,7 @@ export default function TaskCard({
   title, emoji, frequency,
   person, isDone, streak, streakLabel,
   loading, onMarkDone, onNotify,
-  noPeople
+  noPeople, isMyTurn
 }) {
   const initials = person?.name
     ? person.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -31,8 +31,8 @@ export default function TaskCard({
         <>
           <div className="turn-row">
             <div className="turn-info">
-              <span className="turn-label">Turno de</span>
-              <span className="turn-name">{person?.name ?? '—'}</span>
+              <span className="turn-label">{isMyTurn ? '¡Hoy te toca a ti!' : 'Turno de'}</span>
+              <span className="turn-name">{isMyTurn ? 'Tú' : (person?.name ?? '—')}</span>
             </div>
             <div className="avatar">{initials}</div>
           </div>
@@ -48,7 +48,7 @@ export default function TaskCard({
               <span>✅</span>
               <span>¡Completado! Buen trabajo.</span>
             </div>
-          ) : (
+          ) : isMyTurn ? (
             <button
               className="mark-done-btn"
               onClick={onMarkDone}
@@ -56,6 +56,10 @@ export default function TaskCard({
             >
               {loading ? 'Guardando…' : 'Marcar como hecho ✓'}
             </button>
+          ) : (
+            <div className="not-your-turn">
+              🔒 Hoy le toca a {person?.name}
+            </div>
           )}
         </>
       )}

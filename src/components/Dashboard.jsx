@@ -57,7 +57,7 @@ function weekLabel(mondayStr) {
 }
 
 /* ── Component ────────────────────────────────────────── */
-export default function Dashboard({ people, rooms, completions, onRefresh }) {
+export default function Dashboard({ people, rooms, completions, currentPerson, onRefresh }) {
   const [loading, setLoading] = useState(null)
 
   const today    = todayStr()
@@ -69,12 +69,16 @@ export default function Dashboard({ people, rooms, completions, onRefresh }) {
 
   const dishDone = dishComp.some(c => c.due_date === today)
 
-  function currentPerson(taskCompletions) {
+  // Rotación diaria: día 0 desde época → persona 0, día 1 → persona 1, etc.
+  function dishPersonForDay(dateStr) {
     if (!people.length) return null
-    return people[taskCompletions.length % people.length]
+    const epoch = new Date('2025-01-06')
+    const d = new Date(dateStr)
+    const dayIndex = Math.round((d - epoch) / (24 * 60 * 60 * 1000))
+    return people[((dayIndex % people.length) + people.length) % people.length]
   }
 
-  const dishPerson = currentPerson(dishComp)
+  const dishPerson = dishPersonForDay(today)
 
   /* Room rotation: room i → person[(weekNum + i) % n] */
   function roomPerson(roomIndex) {
@@ -136,6 +140,7 @@ export default function Dashboard({ people, rooms, completions, onRefresh }) {
         loading={loading === 'dishwasher'}
         noPeople={!people.length}
         onMarkDone={() => markDone('dishwasher', dishPerson, today)}
+        isMyTurn={currentPerson?.id === dishPerson?.id}
         onNotify={() => fireNotification('🍽️ Recoger el lavavajillas', `Hoy le toca a ${dishPerson?.name ?? '…'}`)}
       />
 
@@ -159,6 +164,8 @@ export default function Dashboard({ people, rooms, completions, onRefresh }) {
                   ? person.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                   : '?'
 
+                const isMyRoom = currentPerson?.id === person?.id
+
                 return (
                   <div className={`room-card ${done ? 'done' : ''}`} key={room.id}>
                     <div className="room-card-top">
@@ -167,14 +174,14 @@ export default function Dashboard({ people, rooms, completions, onRefresh }) {
                     </div>
                     <div className="room-turn-row">
                       <div className="room-turn-info">
-                        <span className="turn-label">Le toca a</span>
-                        <span className="turn-name">{person?.name ?? '—'}</span>
+                        <span className="turn-label">{isMyRoom ? '¡Te toca a ti!' : 'Le toca a'}</span>
+                        <span className="turn-name">{isMyRoom ? 'Tú' : (person?.name ?? '—')}</span>
                       </div>
                       <div className="avatar avatar-sm">{initials}</div>
                     </div>
                     {done ? (
                       <div className="room-done-state">✅ Hecho</div>
-                    ) : (
+                    ) : isMyRoom ? (
                       <button
                         className="room-mark-btn"
                         onClick={() => markRoomDone(room, person)}
@@ -182,6 +189,8 @@ export default function Dashboard({ people, rooms, completions, onRefresh }) {
                       >
                         {loading === key ? '…' : 'Marcar ✓'}
                       </button>
+                    ) : (
+                      <div className="room-locked">🔒 {person?.name}</div>
                     )}
                   </div>
                 )
