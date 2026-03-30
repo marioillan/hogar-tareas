@@ -20,22 +20,28 @@ function todayFormatted() {
 }
 
 export default function App() {
-  const [personId,    setPersonId]    = useState(() => localStorage.getItem('hogar_person_id'))
-  const [tab,         setTab]         = useState('dashboard')
-  const [people,      setPeople]      = useState([])
-  const [rooms,       setRooms]       = useState([])
-  const [completions, setCompletions] = useState([])
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState(null)
+  const [personId,      setPersonId]      = useState(() => localStorage.getItem('hogar_person_id'))
+  const [tab,           setTab]           = useState('dashboard')
+  const [people,        setPeople]        = useState([])
+  const [rooms,         setRooms]         = useState([])
+  const [completions,   setCompletions]   = useState([])
+  const [absenceVotes,  setAbsenceVotes]  = useState([])
+  const [loading,       setLoading]       = useState(true)
+  const [error,         setError]         = useState(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 14)
+      const cutoffStr = cutoff.toISOString().split('T')[0]
+
       const [
         { data: ppl,  error: e1 },
         { data: rms,  error: e2 },
         { data: comp, error: e3 },
+        { data: votes, error: e4 },
       ] = await Promise.all([
         supabase.from('people').select('*').order('order_index', { ascending: true }),
         supabase.from('rooms').select('*').order('order_index', { ascending: true }),
@@ -44,13 +50,16 @@ export default function App() {
           .select('*, people(name), rooms(name, emoji)')
           .order('completed_at', { ascending: false })
           .limit(200),
+        supabase.from('absence_votes').select('*').gte('due_date', cutoffStr),
       ])
       if (e1) throw e1
       if (e2) throw e2
       if (e3) throw e3
+      if (e4) throw e4
       setPeople(ppl ?? [])
       setRooms(rms ?? [])
       setCompletions(comp ?? [])
+      setAbsenceVotes(votes ?? [])
     } catch (err) {
       console.error(err)
       setError('Error al conectar con la base de datos. Revisa las variables de entorno.')
@@ -118,6 +127,7 @@ export default function App() {
                 people={people}
                 rooms={rooms}
                 completions={completions}
+                absenceVotes={absenceVotes}
                 currentPerson={currentPerson}
                 onRefresh={fetchData}
               />

@@ -672,6 +672,137 @@ main {
   font-size: 0.88rem;
 }
 
+/* ── Voting ──────────────────────────────────────────── */
+.task-with-vote {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.skip-notice {
+  background: rgba(255, 179, 71, 0.1);
+  border: 1px solid rgba(255, 179, 71, 0.25);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  padding: 8px 16px;
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.task-with-vote .task-card {
+  border-radius: var(--radius) var(--radius) 0 0;
+  border-bottom: none;
+}
+
+.task-with-vote .task-card + .vote-panel,
+.task-with-vote .skip-notice ~ .task-card {
+  border-radius: 0;
+}
+
+.vote-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vote-panel.skipped {
+  border-color: rgba(255, 179, 71, 0.3);
+}
+
+.vote-question {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.vote-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.vote-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vote-btn.yes.active  { background: rgba(110,231,183,0.15); color: var(--success); border-color: rgba(110,231,183,0.4); }
+.vote-btn.no.active   { background: rgba(255,107,107,0.15); color: var(--danger);  border-color: rgba(255,107,107,0.4); }
+.vote-btn.yes:hover   { border-color: rgba(110,231,183,0.3); color: var(--success); }
+.vote-btn.no:hover    { border-color: rgba(255,107,107,0.3); color: var(--danger); }
+
+.vote-tally {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.vote-skip-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Room vote */
+.room-skip-notice {
+  font-size: 0.72rem;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.room-vote {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.room-vote-btns {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vote-btn-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.vote-btn-sm.yes.active { background: rgba(110,231,183,0.15); color: var(--success); border-color: rgba(110,231,183,0.4); }
+.vote-btn-sm.no.active  { background: rgba(255,107,107,0.15); color: var(--danger);  border-color: rgba(255,107,107,0.4); }
+
+.room-vote-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  flex: 1;
+}
+
+.room-vote-tally {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
 /* ── Rooms Manager ───────────────────────────────────── */
 .rooms-manager {}
 
