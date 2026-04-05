@@ -120,6 +120,17 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
     return personAtIndex(startIdx) // fallback: nadie disponible
   }
 
+  // Devuelve [persona_saltada_1, ..., persona_efectiva]
+  function getPeopleChain(startIdx, taskType, dueDate) {
+    const chain = []
+    for (let skip = 0; skip < people.length; skip++) {
+      const person = personAtIndex(startIdx + skip)
+      chain.push(person)
+      if (!isVotedAbsent(taskType, dueDate, person.id)) break
+    }
+    return chain
+  }
+
   const dishBaseIdx      = (() => {
     const epoch = new Date('2025-01-06')
     const d = new Date(today)
@@ -129,9 +140,8 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
   const dishPerson         = getEffectivePerson(dishBaseIdx, 'dishwasher', today)
   const dishSkipped        = originalDishPerson?.id !== dishPerson?.id
 
-  function originalRoomPerson(i) { return personAtIndex(weekNum + i) }
-  function roomPerson(i)         { return getEffectivePerson(weekNum + i, 'room', thisWeek) }
-  function isRoomDone(roomId)    { return roomComp.some(c => c.room_id === roomId && c.due_date >= thisWeek) }
+  function roomPerson(i)      { return personAtIndex(weekNum + i) }
+  function isRoomDone(roomId) { return roomComp.some(c => c.room_id === roomId && c.due_date >= thisWeek) }
 
   /* ── Actions ───────────────────────────────────────── */
   async function markDone(taskType, person, dueDate) {
@@ -226,9 +236,9 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
           onMarkDone={() => markDone('dishwasher', dishPerson, today)}
           onNotify={() => fireNotification('🍽️ Recoger el lavavajillas', `Hoy le toca a ${dishPerson?.name ?? '…'}`)}
         />
-        {!dishDone && (
-          <VotePanel taskType="dishwasher" dueDate={today} targetPerson={originalDishPerson} />
-        )}
+        {!dishDone && getPeopleChain(dishBaseIdx, 'dishwasher', today).map(p => (
+          <VotePanel key={p.id} taskType="dishwasher" dueDate={today} targetPerson={p} />
+        ))}
       </div>
 
       {/* ── Habitaciones ── */}
@@ -244,19 +254,13 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
           ) : (
             <div className="rooms-grid">
               {rooms.map((room, i) => {
-                const origPerson = originalRoomPerson(i)
-                const person     = roomPerson(i)
-                const done       = isRoomDone(room.id)
-                const key        = `room_${room.id}`
-                const isMyRoom   = currentPerson?.id === person?.id
-                const skipped    = origPerson?.id !== person?.id
-                const initials   = person?.name
+                const person   = roomPerson(i)
+                const done     = isRoomDone(room.id)
+                const key      = `room_${room.id}`
+                const isMyRoom = currentPerson?.id === person?.id
+                const initials = person?.name
                   ? person.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                   : '?'
-                const absent     = absentCount('room', thisWeek, origPerson?.id)
-                const needed     = Math.floor(people.length / 2) + 1
-                const vote       = myVote('room', thisWeek, origPerson?.id)
-                const isOrigMe   = currentPerson?.id === origPerson?.id
 
                 return (
                   <div className={`room-card ${done ? 'done' : ''}`} key={room.id}>
@@ -264,10 +268,6 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
                       <span className="room-card-emoji">{room.emoji}</span>
                       <span className="room-card-name">{room.name}</span>
                     </div>
-
-                    {skipped && (
-                      <div className="room-skip-notice">⏭️ {origPerson?.name} → {person?.name}</div>
-                    )}
 
                     <div className="room-turn-row">
                       <div className="room-turn-info">
@@ -289,29 +289,6 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
                       </button>
                     ) : (
                       <div className="room-locked">🔒 {person?.name}</div>
-                    )}
-
-                    {!done && people.length > 1 && origPerson && (
-                      <div className="room-vote">
-                        {!isOrigMe && (
-                          <div className="room-vote-btns">
-                            <button
-                              className={`vote-btn-sm yes ${vote && !vote.is_absent ? 'active' : ''}`}
-                              onClick={() => castVote('room', thisWeek, origPerson.id, false)}
-                            >✓</button>
-                            <button
-                              className={`vote-btn-sm no ${vote?.is_absent ? 'active' : ''}`}
-                              onClick={() => castVote('room', thisWeek, origPerson.id, true)}
-                            >✗</button>
-                            <span className="room-vote-label">¿Está {origPerson.name}?</span>
-                          </div>
-                        )}
-                        {absent > 0 && (
-                          <div className="room-vote-tally">
-                            {absent}/{people.length} ausente · faltan {Math.max(0, needed - absent)}
-                          </div>
-                        )}
-                      </div>
                     )}
                   </div>
                 )
