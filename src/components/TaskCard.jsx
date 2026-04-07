@@ -1,7 +1,7 @@
 export default function TaskCard({
   title, emoji, frequency,
   person, isDone, streak, streakLabel,
-  loading, onMarkDone, onNotify,
+  loading, onMarkDone,
   noPeople, isMyTurn
 }) {
   const initials = person?.name
@@ -15,14 +15,6 @@ export default function TaskCard({
           <h2>{emoji} {title}</h2>
           <span className="task-frequency">{frequency}</span>
         </div>
-        <button
-          className="notify-btn"
-          onClick={onNotify}
-          title="Recordatorio de navegador"
-          aria-label="Activar recordatorio"
-        >
-          🔔
-        </button>
       </div>
 
       {noPeople ? (

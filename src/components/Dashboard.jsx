@@ -2,6 +2,91 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import TaskCard from './TaskCard'
 
+/* ── Banner para solicitar permiso de notificaciones ──── */
+function NotificationBanner() {
+  const [perm, setPerm] = useState(() =>
+    'Notification' in window ? Notification.permission : 'denied'
+  )
+
+  if (perm !== 'default') return null
+
+  async function handleActivar() {
+    const result = await Notification.requestPermission()
+    setPerm(result)
+  }
+
+  return (
+    <div className="notif-banner">
+      <span className="notif-banner-text">
+        🔔 Activa las notificaciones para saber cuándo se completan las tareas
+      </span>
+      <button className="notif-banner-btn" onClick={handleActivar}>
+        Activar
+      </button>
+    </div>
+  )
+}
+
+/* ── VotePanel (fuera del componente para evitar recreación en cada render) */
+function VotePanel({ taskType, dueDate, targetPerson, people, currentPerson, absenceVotes, onCastVote }) {
+  if (!targetPerson || people.length < 2) return null
+
+  function absentCount() {
+    return absenceVotes.filter(v =>
+      v.task_type === taskType &&
+      v.due_date === dueDate &&
+      v.target_person_id === targetPerson.id &&
+      v.is_absent
+    ).length
+  }
+
+  function isVotedAbsent() {
+    return absentCount() > people.length / 2
+  }
+
+  function myVote() {
+    if (!currentPerson) return null
+    return absenceVotes.find(v =>
+      v.task_type === taskType &&
+      v.due_date === dueDate &&
+      v.target_person_id === targetPerson.id &&
+      v.voter_person_id === currentPerson.id
+    ) ?? null
+  }
+
+  const absent  = absentCount()
+  const needed  = Math.floor(people.length / 2) + 1
+  const vote    = myVote()
+  const isMe    = currentPerson?.id === targetPerson.id
+  const skipped = isVotedAbsent()
+
+  return (
+    <div className={`vote-panel ${skipped ? 'skipped' : ''}`}>
+      <div className="vote-question">
+        {isMe ? '¿Confirman que estás disponible?' : `¿Está ${targetPerson.name}?`}
+      </div>
+      {!isMe && (
+        <div className="vote-buttons">
+          <button
+            className={`vote-btn yes ${vote && !vote.is_absent ? 'active' : ''}`}
+            onClick={() => onCastVote(taskType, dueDate, targetPerson.id, false)}
+            aria-pressed={!!(vote && !vote.is_absent)}
+          >✓ Sí</button>
+          <button
+            className={`vote-btn no ${vote?.is_absent ? 'active' : ''}`}
+            onClick={() => onCastVote(taskType, dueDate, targetPerson.id, true)}
+            aria-pressed={!!vote?.is_absent}
+          >✗ No</button>
+        </div>
+      )}
+      <div className="vote-tally">
+        {absent} de {people.length} votan ausente · faltan {Math.max(0, needed - absent)} para saltar
+        {skipped && <span className="vote-skip-label"> · ⏭️ saltado</span>}
+      </div>
+    </div>
+  )
+}
+
 /* ── Date helpers ─────────────────────────────────────── */
 function todayStr() {
   return new Date().toISOString().split('T')[0]
@@ -35,14 +120,6 @@ function dishwasherStreak(completions) {
   return streak
 }
 
-async function fireNotification(title, body) {
-  if (!('Notification' in window)) { alert('Tu navegador no soporta notificaciones.'); return }
-  const perm = Notification.permission === 'default'
-    ? await Notification.requestPermission()
-    : Notification.permission
-  if (perm === 'granted') new Notification(title, { body, icon: '/favicon.ico' })
-  else alert('Activa los permisos de notificación en tu navegador.')
-}
 
 function weekLabel(mondayStr) {
   const monday = new Date(mondayStr)
@@ -175,42 +252,10 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
   const roomsPending = rooms.some(r => !isRoomDone(r.id)) && people.length > 0
   const hasPending   = (!dishDone || roomsPending) && people.length > 0
 
-  /* ── Vote panel ────────────────────────────────────── */
-  function VotePanel({ taskType, dueDate, targetPerson }) {
-    if (!targetPerson || people.length < 2) return null
-    const absent  = absentCount(taskType, dueDate, targetPerson.id)
-    const needed  = Math.floor(people.length / 2) + 1
-    const vote    = myVote(taskType, dueDate, targetPerson.id)
-    const isMe    = currentPerson?.id === targetPerson.id
-    const skipped = isVotedAbsent(taskType, dueDate, targetPerson.id)
-
-    return (
-      <div className={`vote-panel ${skipped ? 'skipped' : ''}`}>
-        <div className="vote-question">
-          {isMe ? '¿Confirman que estás disponible?' : `¿Está ${targetPerson.name}?`}
-        </div>
-        {!isMe && (
-          <div className="vote-buttons">
-            <button
-              className={`vote-btn yes ${vote && !vote.is_absent ? 'active' : ''}`}
-              onClick={() => castVote(taskType, dueDate, targetPerson.id, false)}
-            >✓ Sí</button>
-            <button
-              className={`vote-btn no ${vote?.is_absent ? 'active' : ''}`}
-              onClick={() => castVote(taskType, dueDate, targetPerson.id, true)}
-            >✗ No</button>
-          </div>
-        )}
-        <div className="vote-tally">
-          {absent} de {people.length} votan ausente · faltan {Math.max(0, needed - absent)} para saltar
-          {skipped && <span className="vote-skip-label"> · ⏭️ saltado</span>}
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="dashboard">
+      <NotificationBanner />
+
       {hasPending && (
         <div className="pending-banner">⚡ Tienes tareas pendientes</div>
       )}
@@ -234,10 +279,18 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
           noPeople={!people.length}
           isMyTurn={currentPerson?.id === dishPerson?.id}
           onMarkDone={() => markDone('dishwasher', dishPerson, today)}
-          onNotify={() => fireNotification('🍽️ Recoger el lavavajillas', `Hoy le toca a ${dishPerson?.name ?? '…'}`)}
         />
         {!dishDone && getPeopleChain(dishBaseIdx, 'dishwasher', today).map(p => (
-          <VotePanel key={p.id} taskType="dishwasher" dueDate={today} targetPerson={p} />
+          <VotePanel
+            key={p.id}
+            taskType="dishwasher"
+            dueDate={today}
+            targetPerson={p}
+            people={people}
+            currentPerson={currentPerson}
+            absenceVotes={absenceVotes}
+            onCastVote={castVote}
+          />
         ))}
       </div>
 
@@ -274,7 +327,7 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
                         <span className="turn-label">{isMyRoom ? '¡Te toca a ti!' : 'Le toca a'}</span>
                         <span className="turn-name">{isMyRoom ? 'Tú' : (person?.name ?? '—')}</span>
                       </div>
-                      <div className="avatar avatar-sm">{initials}</div>
+                      <div className="avatar-sm">{initials}</div>
                     </div>
 
                     {done ? (
@@ -288,7 +341,7 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
                         {loading === key ? '…' : 'Marcar ✓'}
                       </button>
                     ) : (
-                      <div className="room-locked">🔒 {person?.name}</div>
+                      <div className="room-locked">🔒 No es tu turno</div>
                     )}
                   </div>
                 )

@@ -5,6 +5,17 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Focus (keyboard navigation) ────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
 :root {
   --bg:          #0f0f17;
   --surface:     #1a1a28;
@@ -128,6 +139,10 @@ body {
   letter-spacing: 0.01em;
 }
 
+.tab-btn:hover:not(.active) {
+  color: var(--text);
+}
+
 .tab-btn.active {
   color: var(--primary);
   border-bottom-color: var(--primary);
@@ -163,9 +178,11 @@ main {
 .pending-banner {
   background: rgba(255, 179, 71, 0.12);
   border: 1px solid rgba(255, 179, 71, 0.3);
+  border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
   padding: 10px 14px;
   font-size: 0.82rem;
+  font-weight: 600;
   color: var(--accent);
   display: flex;
   align-items: center;
@@ -803,6 +820,29 @@ main {
   color: var(--muted);
 }
 
+/* ── Admin ───────────────────────────────────────────── */
+.admin-badge {
+  display: inline-block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  background: rgba(200, 180, 255, 0.12);
+  border: 1px solid rgba(200, 180, 255, 0.25);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 7px;
+  vertical-align: middle;
+}
+
+.admin-only-hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+  padding: 14px 0 4px;
+}
+
 /* ── Rooms Manager ───────────────────────────────────── */
 .rooms-manager {}
 
@@ -1023,6 +1063,124 @@ main {
 
   .history-item {
     padding: 14px 12px;
+  }
+}
+
+/* ── Notification banner ─────────────────────────────── */
+.notif-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(200, 180, 255, 0.07);
+  border: 1px solid rgba(200, 180, 255, 0.18);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  animation: slideUp 0.3s ease both;
+}
+
+.notif-banner-text {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.notif-banner-btn {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  background: var(--primary);
+  color: #0f0f17;
+  border: none;
+  border-radius: 7px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.notif-banner-btn:hover { opacity: 0.88; }
+
+/* ── Skeleton loader ─────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface2) 50%,
+    var(--surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+  height: 185px;
+  border-radius: var(--radius);
+}
+
+.skeleton-card-sm {
+  height: 120px;
+  border-radius: var(--radius);
+}
+
+/* ── Inline confirm row ──────────────────────────────── */
+.confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.22);
+  border-radius: var(--radius-sm);
+  animation: slideUp 0.2s ease both;
+}
+
+.confirm-row span {
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--danger);
+}
+
+.confirm-yes-btn {
+  padding: 5px 12px;
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.confirm-yes-btn:hover { opacity: 0.82; }
+
+.confirm-no-btn {
+  padding: 5px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.confirm-no-btn:hover { color: var(--text); }
+
+/* ── Reduced motion ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

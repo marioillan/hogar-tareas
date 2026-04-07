@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { supabase } from './lib/supabase'
 import Dashboard     from './components/Dashboard'
 import PeopleManager from './components/PeopleManager'
@@ -22,6 +22,7 @@ function todayFormatted() {
 export default function App() {
   const [personId,      setPersonId]      = useState(() => localStorage.getItem('hogar_person_id'))
   const [tab,           setTab]           = useState('dashboard')
+  const mainRef = useRef(null)
   const [people,        setPeople]        = useState([])
   const [rooms,         setRooms]         = useState([])
   const [completions,   setCompletions]   = useState([])
@@ -81,33 +82,51 @@ export default function App() {
   useEffect(() => { roomsRef.current    = rooms    }, [rooms])
   useEffect(() => { personIdRef.current = personId }, [personId])
 
-  // Escuchar inserciones en completions y notificar a los demás
+  // Escuchar inserciones en completions y absence_votes → notificar a los demás
   useEffect(() => {
     if (!personId) return
 
-    const channel = supabase
-      .channel('completions-notify')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
-        const c = payload.new
+    function notify(title, body) {
+      if (Notification.permission !== 'granted') return
+      new Notification(title, { body, icon: '/icon.svg' })
+    }
 
-        // No notificar al que acaba de marcar la tarea
-        if (c.person_id === personIdRef.current) return
-        if (Notification.permission !== 'granted') return
+    const channel = supabase
+      .channel('hogar-realtime')
+      // ── Tareas completadas ───────────────────────────────
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'completions' }, payload => {
+        const c    = payload.new
+        if (c.person_id === personIdRef.current) { fetchData(); return }
 
         const person = peopleRef.current.find(p => p.id === c.person_id)
         const name   = person?.name ?? 'Alguien'
 
-        let title, body
         if (c.task_type === 'dishwasher') {
-          title = '🍽️ Lavavajillas recogido'
-          body  = `${name} ha recogido el lavavajillas`
+          notify('🍽️ Lavavajillas recogido', `${name} ha recogido el lavavajillas`)
         } else if (c.task_type === 'room') {
           const room = roomsRef.current.find(r => r.id === c.room_id)
-          title = `${room?.emoji ?? '🏠'} Habitación limpiada`
-          body  = `${name} ha limpiado ${room?.name ?? 'una habitación'}`
+          notify(
+            `${room?.emoji ?? '🏠'} ${room?.name ?? 'Habitación'} limpiada`,
+            `${name} ha limpiado ${room?.name ?? 'una habitación'}`
+          )
         }
+        fetchData()
+      })
+      // ── Votos de ausencia ────────────────────────────────
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'absence_votes' }, payload => {
+        const v = payload.new
+        if (v.voter_person_id === personIdRef.current) { fetchData(); return }
+        if (!v.is_absent) { fetchData(); return } // solo notificar votos de ausencia
 
-        if (title) new Notification(title, { body, icon: '/favicon.ico' })
+        const voter  = peopleRef.current.find(p => p.id === v.voter_person_id)
+        const target = peopleRef.current.find(p => p.id === v.target_person_id)
+        if (!voter || !target) { fetchData(); return }
+
+        const tarea = v.task_type === 'dishwasher' ? 'lavavajillas' : 'una habitación'
+        notify(
+          '👥 Voto de ausencia',
+          `${voter.name} cree que ${target.name} no puede hacer ${tarea}`
+        )
         fetchData()
       })
       .subscribe()
@@ -118,6 +137,11 @@ export default function App() {
   function handleLogin(id) {
     localStorage.setItem('hogar_person_id', id)
     setPersonId(id)
+  }
+
+  function handleTabChange(id) {
+    setTab(id)
+    mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function handleLogout() {
@@ -138,16 +162,19 @@ export default function App() {
             <span className="header-date">{todayFormatted()}</span>
             <div className="header-user">
               <span className="header-username">{currentPerson?.name ?? '…'}</span>
-              <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">↩</button>
+              <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión" aria-label="Cerrar sesión">↩</button>
             </div>
           </div>
         </div>
-        <nav className="tabs">
+        <nav className="tabs" role="tablist">
           {TABS.map(t => (
             <button
               key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              aria-current={tab === t.id ? 'page' : undefined}
               className={`tab-btn ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => handleTabChange(t.id)}
             >
               {t.label}
             </button>
@@ -155,13 +182,17 @@ export default function App() {
         </nav>
       </header>
 
-      <main>
+      <main ref={mainRef}>
         {error ? (
           <div style={{ color: 'var(--danger)', padding: '20px', lineHeight: 1.6 }}>
             ⚠️ {error}
           </div>
         ) : loading ? (
-          <div className="loading">Cargando…</div>
+          <div className="dashboard" role="status" aria-label="Cargando contenido">
+            <div className="skeleton skeleton-card" />
+            <div className="skeleton skeleton-card-sm" />
+            <div className="skeleton skeleton-card-sm" />
+          </div>
         ) : (
           <>
             {tab === 'dashboard' && (
@@ -178,10 +209,10 @@ export default function App() {
               <History completions={completions} rooms={rooms} />
             )}
             {tab === 'rooms' && (
-              <RoomsManager rooms={rooms} onRefresh={fetchData} />
+              <RoomsManager rooms={rooms} onRefresh={fetchData} isAdmin={currentPerson?.is_admin ?? false} />
             )}
             {tab === 'people' && (
-              <PeopleManager people={people} onRefresh={fetchData} />
+              <PeopleManager people={people} onRefresh={fetchData} isAdmin={currentPerson?.is_admin ?? false} />
             )}
           </>
         )}

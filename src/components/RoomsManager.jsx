@@ -3,11 +3,12 @@ import { supabase } from '../lib/supabase'
 
 const DEFAULT_EMOJIS = ['🛋️', '🍳', '🛁']
 
-export default function RoomsManager({ rooms, onRefresh }) {
-  const [name, setName]     = useState('')
-  const [emoji, setEmoji]   = useState('🏠')
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDel]  = useState(null)
+export default function RoomsManager({ rooms, onRefresh, isAdmin }) {
+  const [name,      setName]      = useState('')
+  const [emoji,     setEmoji]     = useState('🏠')
+  const [saving,    setSaving]    = useState(false)
+  const [deleting,  setDeleting]  = useState(null)
+  const [confirmId, setConfirmId] = useState(null)
 
   async function addRoom() {
     const trimmed = name.trim()
@@ -26,10 +27,10 @@ export default function RoomsManager({ rooms, onRefresh }) {
   }
 
   async function removeRoom(id) {
-    if (!window.confirm('¿Eliminar esta habitación? Las tareas completadas quedarán en el historial.')) return
-    setDel(id)
+    setDeleting(id)
     await supabase.from('rooms').delete().eq('id', id)
-    setDel(null)
+    setDeleting(null)
+    setConfirmId(null)
     onRefresh()
   }
 
@@ -56,57 +57,102 @@ export default function RoomsManager({ rooms, onRefresh }) {
           <p className="empty-state">Sin habitaciones todavía. ¡Añade la primera! 👇</p>
         )}
         {rooms.map((r, i) => (
-          <div className="person-row" key={r.id}>
-            <span className="room-emoji-badge">{r.emoji}</span>
-            <span className="person-row-name">{r.name}</span>
-            <div className="row-actions">
-              <button className="row-btn" onClick={() => swap(i, i - 1)} disabled={i === 0} title="Subir">▲</button>
-              <button className="row-btn" onClick={() => swap(i, i + 1)} disabled={i === rooms.length - 1} title="Bajar">▼</button>
-              <button className="row-btn danger" onClick={() => removeRoom(r.id)} disabled={deleting === r.id} title="Eliminar">✕</button>
+          <div key={r.id}>
+            <div className="person-row">
+              <span className="room-emoji-badge">{r.emoji}</span>
+              <span className="person-row-name">{r.name}</span>
+                {isAdmin && (
+                <div className="row-actions">
+                  <button
+                    className="row-btn"
+                    onClick={() => swap(i, i - 1)}
+                    disabled={i === 0}
+                    title="Subir"
+                    aria-label={`Subir ${r.name}`}
+                  >▲</button>
+                  <button
+                    className="row-btn"
+                    onClick={() => swap(i, i + 1)}
+                    disabled={i === rooms.length - 1}
+                    title="Bajar"
+                    aria-label={`Bajar ${r.name}`}
+                  >▼</button>
+                  <button
+                    className="row-btn danger"
+                    onClick={() => setConfirmId(confirmId === r.id ? null : r.id)}
+                    disabled={deleting === r.id}
+                    title="Eliminar"
+                    aria-label={`Eliminar ${r.name}`}
+                  >✕</button>
+                </div>
+              )}
             </div>
+            {confirmId === r.id && (
+              <div className="confirm-row">
+                <span>¿Eliminar {r.name}? Las tareas completadas quedarán en el historial.</span>
+                <button
+                  className="confirm-no-btn"
+                  onClick={() => setConfirmId(null)}
+                >Cancelar</button>
+                <button
+                  className="confirm-yes-btn"
+                  onClick={() => removeRoom(r.id)}
+                  disabled={deleting === r.id}
+                >Eliminar</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Emoji quick-pick */}
-      <div className="emoji-picker">
-        {DEFAULT_EMOJIS.map(e => (
-          <button
-            key={e}
-            className={`emoji-opt ${emoji === e ? 'selected' : ''}`}
-            onClick={() => setEmoji(e)}
-          >
-            {e}
-          </button>
-        ))}
-        <input
-          className="emoji-custom"
-          type="text"
-          value={emoji}
-          onChange={ev => setEmoji(ev.target.value.slice(-2) || '🏠')}
-          maxLength={2}
-          title="Escribe o pega un emoji personalizado"
-        />
-      </div>
+      {isAdmin ? (
+        <>
+          {/* Emoji quick-pick */}
+          <div className="emoji-picker">
+            {DEFAULT_EMOJIS.map(e => (
+              <button
+                key={e}
+                className={`emoji-opt ${emoji === e ? 'selected' : ''}`}
+                onClick={() => setEmoji(e)}
+                aria-label={`Emoji ${e}`}
+                aria-pressed={emoji === e}
+              >
+                {e}
+              </button>
+            ))}
+            <input
+              className="emoji-custom"
+              type="text"
+              value={emoji}
+              onChange={ev => setEmoji(ev.target.value.slice(-2) || '🏠')}
+              maxLength={2}
+              title="Escribe o pega un emoji personalizado"
+              aria-label="Emoji personalizado"
+            />
+          </div>
 
-      <div className="add-row">
-        <input
-          className="add-input"
-          type="text"
-          placeholder="Nombre de la habitación…"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addRoom()}
-          maxLength={40}
-        />
-        <button
-          className="add-btn"
-          onClick={addRoom}
-          disabled={saving || !name.trim()}
-        >
-          {saving ? '…' : '+ Añadir'}
-        </button>
-      </div>
+          <div className="add-row">
+            <input
+              className="add-input"
+              type="text"
+              placeholder="Nombre de la habitación…"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addRoom()}
+              maxLength={40}
+            />
+            <button
+              className="add-btn"
+              onClick={addRoom}
+              disabled={saving || !name.trim()}
+            >
+              {saving ? '…' : '+ Añadir'}
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="admin-only-hint">🔒 Solo el administrador puede añadir o reordenar habitaciones.</p>
+      )}
     </div>
   )
 }

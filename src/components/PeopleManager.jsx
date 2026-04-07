@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
-export default function PeopleManager({ people, onRefresh }) {
-  const [name, setName]       = useState('')
-  const [saving, setSaving]   = useState(false)
-  const [deleting, setDelete] = useState(null)
+export default function PeopleManager({ people, onRefresh, isAdmin }) {
+  const [name,      setName]      = useState('')
+  const [saving,    setSaving]    = useState(false)
+  const [deleting,  setDeleting]  = useState(null)
+  const [confirmId, setConfirmId] = useState(null)
 
   async function addPerson() {
     const trimmed = name.trim()
@@ -21,10 +22,10 @@ export default function PeopleManager({ people, onRefresh }) {
   }
 
   async function removePerson(id) {
-    if (!window.confirm('¿Eliminar esta persona? Sus tareas completadas quedarán registradas.')) return
-    setDelete(id)
+    setDeleting(id)
     await supabase.from('people').delete().eq('id', id)
-    setDelete(null)
+    setDeleting(null)
+    setConfirmId(null)
     onRefresh()
   }
 
@@ -52,51 +53,79 @@ export default function PeopleManager({ people, onRefresh }) {
         )}
 
         {people.map((p, i) => (
-          <div className="person-row" key={p.id}>
-            <div className="person-badge">{i + 1}</div>
-            <span className="person-row-name">{p.name}</span>
-            <div className="row-actions">
-              <button
-                className="row-btn"
-                onClick={() => swap(i, i - 1)}
-                disabled={i === 0}
-                title="Subir"
-              >▲</button>
-              <button
-                className="row-btn"
-                onClick={() => swap(i, i + 1)}
-                disabled={i === people.length - 1}
-                title="Bajar"
-              >▼</button>
-              <button
-                className="row-btn danger"
-                onClick={() => removePerson(p.id)}
-                disabled={deleting === p.id}
-                title="Eliminar"
-              >✕</button>
+          <div key={p.id}>
+            <div className="person-row">
+              <div className="person-badge">{i + 1}</div>
+              <span className="person-row-name">
+                {p.name}
+                {p.is_admin && <span className="admin-badge">admin</span>}
+              </span>
+              {isAdmin && (
+                <div className="row-actions">
+                  <button
+                    className="row-btn"
+                    onClick={() => swap(i, i - 1)}
+                    disabled={i === 0}
+                    title="Subir"
+                    aria-label={`Subir a ${p.name}`}
+                  >▲</button>
+                  <button
+                    className="row-btn"
+                    onClick={() => swap(i, i + 1)}
+                    disabled={i === people.length - 1}
+                    title="Bajar"
+                    aria-label={`Bajar a ${p.name}`}
+                  >▼</button>
+                  <button
+                    className="row-btn danger"
+                    onClick={() => setConfirmId(confirmId === p.id ? null : p.id)}
+                    disabled={deleting === p.id}
+                    title="Eliminar"
+                    aria-label={`Eliminar a ${p.name}`}
+                  >✕</button>
+                </div>
+              )}
             </div>
+            {confirmId === p.id && (
+              <div className="confirm-row">
+                <span>¿Eliminar a {p.name}? Sus tareas quedarán en el historial.</span>
+                <button
+                  className="confirm-no-btn"
+                  onClick={() => setConfirmId(null)}
+                >Cancelar</button>
+                <button
+                  className="confirm-yes-btn"
+                  onClick={() => removePerson(p.id)}
+                  disabled={deleting === p.id}
+                >Eliminar</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="add-row">
-        <input
-          className="add-input"
-          type="text"
-          placeholder="Nombre de la persona…"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && addPerson()}
-          maxLength={40}
-        />
-        <button
-          className="add-btn"
-          onClick={addPerson}
-          disabled={saving || !name.trim()}
-        >
-          {saving ? '…' : '+ Añadir'}
-        </button>
-      </div>
+      {isAdmin ? (
+        <div className="add-row">
+          <input
+            className="add-input"
+            type="text"
+            placeholder="Nombre de la persona…"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addPerson()}
+            maxLength={40}
+          />
+          <button
+            className="add-btn"
+            onClick={addPerson}
+            disabled={saving || !name.trim()}
+          >
+            {saving ? '…' : '+ Añadir'}
+          </button>
+        </div>
+      ) : (
+        <p className="admin-only-hint">🔒 Solo el administrador puede añadir o reordenar personas.</p>
+      )}
     </div>
   )
 }

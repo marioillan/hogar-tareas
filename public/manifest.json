@@ -1,0 +1,13 @@
+{
+  "name": "Tareas del Hogar",
+  "short_name": "Tareas",
+  "description": "Gestión de tareas del hogar con turnos rotativos",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a1a2e",
+  "background_color": "#0f0f17",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
