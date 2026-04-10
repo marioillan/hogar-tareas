@@ -9,7 +9,7 @@ export default function TaskCard({
     : '?'
 
   return (
-    <div className={`task-card ${isDone ? 'done' : ''}`}>
+    <div className={`task-card ${isDone ? 'done' : ''} ${isMyTurn && !isDone ? 'my-turn' : ''}`}>
       <div className="task-card-header">
         <div className="task-title-group">
           <h2>{emoji} {title}</h2>

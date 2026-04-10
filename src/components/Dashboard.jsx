@@ -208,13 +208,37 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
     return chain
   }
 
-  const dishBaseIdx      = (() => {
+  const dishBaseIdx = (() => {
     const epoch = new Date('2025-01-06')
     const d = new Date(today)
     return Math.round((d - epoch) / (24 * 60 * 60 * 1000))
   })()
-  const originalDishPerson = personAtIndex(dishBaseIdx)
-  const dishPerson         = getEffectivePerson(dishBaseIdx, 'dishwasher', today)
+
+  // Opción B: ajustar el índice base acumulando los saltos de días anteriores.
+  // Si el día N la persona X fue saltada y cubrió Y, el día N+1 empieza desde Y+1
+  // (no desde X+1), evitando que Y tenga que hacerlo dos días seguidos.
+  // Usamos los 14 días de datos que ya tenemos; antes de eso se asumen 0 saltos.
+  const adjustedDishBaseIdx = (() => {
+    if (!people.length) return dishBaseIdx
+    const LOOKBACK = 14
+    let idx = dishBaseIdx - LOOKBACK
+    for (let daysAgo = LOOKBACK; daysAgo > 0; daysAgo--) {
+      const d = new Date()
+      d.setDate(d.getDate() - daysAgo)
+      const dateStr = d.toISOString().split('T')[0]
+      // Cuántas personas se saltaron ese día (mismo criterio que getEffectivePerson)
+      let skips = 0
+      for (let s = 0; s < people.length; s++) {
+        if (!isVotedAbsent('dishwasher', dateStr, personAtIndex(idx + s).id)) { skips = s; break }
+        if (s === people.length - 1) skips = 0 // todos ausentes → fallback, sin salto extra
+      }
+      idx += 1 + skips
+    }
+    return idx
+  })()
+
+  const originalDishPerson = personAtIndex(adjustedDishBaseIdx)
+  const dishPerson         = getEffectivePerson(adjustedDishBaseIdx, 'dishwasher', today)
   const dishSkipped        = originalDishPerson?.id !== dishPerson?.id
 
   function roomPerson(i)      { return personAtIndex(weekNum + i) }
@@ -280,7 +304,7 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
           isMyTurn={currentPerson?.id === dishPerson?.id}
           onMarkDone={() => markDone('dishwasher', dishPerson, today)}
         />
-        {!dishDone && getPeopleChain(dishBaseIdx, 'dishwasher', today).map(p => (
+        {!dishDone && getPeopleChain(adjustedDishBaseIdx, 'dishwasher', today).map(p => (
           <VotePanel
             key={p.id}
             taskType="dishwasher"

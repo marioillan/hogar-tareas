@@ -7,10 +7,10 @@ import History       from './components/History'
 import Login         from './components/Login'
 
 const TABS = [
-  { id: 'dashboard', label: '🏠 Hoy' },
-  { id: 'history',   label: '📋 Historial' },
-  { id: 'rooms',     label: '🛋️ Habitaciones' },
-  { id: 'people',    label: '👥 Personas' },
+  { id: 'dashboard', icon: '🏠', label: 'Hoy' },
+  { id: 'history',   icon: '📋', label: 'Historial' },
+  { id: 'rooms',     icon: '🛋️', label: 'Salas' },
+  { id: 'people',    icon: '👥', label: 'Personas' },
 ]
 
 function todayFormatted() {
@@ -156,33 +156,17 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div className="header-top">
+        <div className="header-brand">
           <h1>Tareas del Hogar</h1>
-          <div className="header-right">
-            <span className="header-date">{todayFormatted()}</span>
-            <div className="header-user">
-              <span className="header-username">{currentPerson?.name ?? '…'}</span>
-              <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión" aria-label="Cerrar sesión">↩</button>
-            </div>
-          </div>
+          <span className="header-date">{todayFormatted()}</span>
         </div>
-        <nav className="tabs" role="tablist">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              aria-current={tab === t.id ? 'page' : undefined}
-              className={`tab-btn ${tab === t.id ? 'active' : ''}`}
-              onClick={() => handleTabChange(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
+        <div className="header-user">
+          <span className="header-username">{currentPerson?.name ?? '…'}</span>
+          <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión" aria-label="Cerrar sesión">↩</button>
+        </div>
       </header>
 
-      <main ref={mainRef}>
+      <main ref={mainRef} id="main-content">
         {error ? (
           <div style={{ color: 'var(--danger)', padding: '20px', lineHeight: 1.6 }}>
             ⚠️ {error}
@@ -217,6 +201,22 @@ export default function App() {
           </>
         )}
       </main>
+
+      <nav className="bottom-nav" role="tablist" aria-label="Navegación principal">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            aria-current={tab === t.id ? 'page' : undefined}
+            className={`tab-btn ${tab === t.id ? 'active' : ''}`}
+            onClick={() => handleTabChange(t.id)}
+          >
+            <span className="tab-icon" aria-hidden="true">{t.icon}</span>
+            <span className="tab-label">{t.label}</span>
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }
