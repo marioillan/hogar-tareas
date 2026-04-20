@@ -27,7 +27,7 @@ function NotificationBanner() {
   )
 }
 
-/* ── VotePanel (fuera del componente para evitar recreación en cada render) */
+/* ── VotePanel */
 function VotePanel({ taskType, dueDate, targetPerson, people, currentPerson, absenceVotes, onCastVote }) {
   if (!targetPerson || people.length < 2) return null
 
@@ -87,61 +87,28 @@ function VotePanel({ taskType, dueDate, targetPerson, people, currentPerson, abs
   )
 }
 
-/* ── Date helpers ─────────────────────────────────────── */
+/* ── Date helpers */
 function todayStr() {
   return new Date().toISOString().split('T')[0]
 }
 
-function weekMondayStr(ref = new Date()) {
-  const d = new Date(ref)
-  const dow = d.getDay()
-  const diff = dow === 0 ? -6 : 1 - dow
-  d.setDate(d.getDate() + diff)
-  return d.toISOString().split('T')[0]
+function formatCompletedAt(isoStr) {
+  return new Date(isoStr).toLocaleDateString('es-ES', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  })
 }
 
-function currentWeekNumber(mondayStr) {
-  const epoch = new Date('2025-01-06')
-  const d = new Date(mondayStr)
-  return Math.floor((d - epoch) / (7 * 24 * 60 * 60 * 1000))
-}
-
-function dishwasherStreak(completions) {
-  if (!completions.length) return 0
-  const doneSet = new Set(completions.map(c => c.due_date))
-  let streak = 0
-  const d = new Date()
-  while (true) {
-    const s = d.toISOString().split('T')[0]
-    if (!doneSet.has(s)) break
-    streak++
-    d.setDate(d.getDate() - 1)
-  }
-  return streak
-}
-
-
-function weekLabel(mondayStr) {
-  const monday = new Date(mondayStr)
-  const sunday = new Date(monday)
-  sunday.setDate(sunday.getDate() + 6)
-  const fmt = d => d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-  return `${fmt(monday)} – ${fmt(sunday)}`
-}
-
-/* ── Component ────────────────────────────────────────── */
+/* ── Component */
 export default function Dashboard({ people, rooms, completions, absenceVotes, currentPerson, onRefresh }) {
   const [loading, setLoading] = useState(null)
 
   const today    = todayStr()
-  const thisWeek = weekMondayStr()
-  const weekNum  = currentWeekNumber(thisWeek)
-
-  const dishComp = completions.filter(c => c.task_type === 'dishwasher')
+  const dishComp = completions
+    .filter(c => c.task_type === 'dishwasher')
+    .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))
   const roomComp = completions.filter(c => c.task_type === 'room')
-  const dishDone = dishComp.some(c => c.due_date === today)
 
-  /* ── Vote helpers ──────────────────────────────────── */
+  /* ── Vote helpers */
   function absentCount(taskType, dueDate, personId) {
     return absenceVotes.filter(v =>
       v.task_type === taskType &&
@@ -168,7 +135,6 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
   async function castVote(taskType, dueDate, targetPersonId, isAbsent) {
     if (!currentPerson) return
     const existing = myVote(taskType, dueDate, targetPersonId)
-    // Si pulsa el mismo botón que ya tenía → desmarcar
     if (existing && existing.is_absent === isAbsent) {
       await supabase.from('absence_votes').delete().eq('id', existing.id)
     } else {
@@ -183,10 +149,18 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
     onRefresh()
   }
 
-  /* ── Rotation with skip logic ──────────────────────── */
+  /* ── Rotation helpers (completion-based, not time-based) */
   function personAtIndex(idx) {
     if (!people.length) return null
     return people[((idx % people.length) + people.length) % people.length]
+  }
+
+  // Returns the starting index for the person AFTER the last completer
+  function nextIdx(lastPersonId, fallback = 0) {
+    if (!people.length) return fallback
+    if (!lastPersonId) return fallback
+    const lastIdx = people.findIndex(p => p.id === lastPersonId)
+    return lastIdx === -1 ? fallback : (lastIdx + 1) % people.length
   }
 
   function getEffectivePerson(startIdx, taskType, dueDate) {
@@ -194,10 +168,9 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
       const person = personAtIndex(startIdx + skip)
       if (!isVotedAbsent(taskType, dueDate, person.id)) return person
     }
-    return personAtIndex(startIdx) // fallback: nadie disponible
+    return personAtIndex(startIdx)
   }
 
-  // Devuelve [persona_saltada_1, ..., persona_efectiva]
   function getPeopleChain(startIdx, taskType, dueDate) {
     const chain = []
     for (let skip = 0; skip < people.length; skip++) {
@@ -208,50 +181,64 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
     return chain
   }
 
-  const dishBaseIdx = (() => {
-    const epoch = new Date('2025-01-06')
-    const d = new Date(today)
-    return Math.round((d - epoch) / (24 * 60 * 60 * 1000))
-  })()
-
-  // Opción B: ajustar el índice base acumulando los saltos de días anteriores.
-  // Si el día N la persona X fue saltada y cubrió Y, el día N+1 empieza desde Y+1
-  // (no desde X+1), evitando que Y tenga que hacerlo dos días seguidos.
-  // Usamos los 14 días de datos que ya tenemos; antes de eso se asumen 0 saltos.
-  const adjustedDishBaseIdx = (() => {
-    if (!people.length) return dishBaseIdx
-    const LOOKBACK = 14
-    let idx = dishBaseIdx - LOOKBACK
-    for (let daysAgo = LOOKBACK; daysAgo > 0; daysAgo--) {
-      const d = new Date()
-      d.setDate(d.getDate() - daysAgo)
-      const dateStr = d.toISOString().split('T')[0]
-      // Cuántas personas se saltaron ese día (mismo criterio que getEffectivePerson)
-      let skips = 0
-      for (let s = 0; s < people.length; s++) {
-        if (!isVotedAbsent('dishwasher', dateStr, personAtIndex(idx + s).id)) { skips = s; break }
-        if (s === people.length - 1) skips = 0 // todos ausentes → fallback, sin salto extra
-      }
-      idx += 1 + skips
-    }
-    return idx
-  })()
-
-  const originalDishPerson = personAtIndex(adjustedDishBaseIdx)
-  const dishPerson         = getEffectivePerson(adjustedDishBaseIdx, 'dishwasher', today)
+  /* ── Dishwasher: turno basado en la última finalización */
+  const lastDishComp       = dishComp[0] ?? null
+  const dishStartIdx       = nextIdx(lastDishComp?.person_id, 0)
+  const originalDishPerson = personAtIndex(dishStartIdx)
+  const dishPerson         = getEffectivePerson(dishStartIdx, 'dishwasher', today)
   const dishSkipped        = originalDishPerson?.id !== dishPerson?.id
 
-  function roomPerson(i)      { return personAtIndex(weekNum + i) }
-  function isRoomDone(roomId) { return roomComp.some(c => c.room_id === roomId && c.due_date >= thisWeek) }
+  /* ── Rooms: rotación por rondas — la rotación avanza sólo cuando
+        TODAS las habitaciones han sido completadas en la ronda actual   */
+  const roomRoundData = (() => {
+    if (!rooms.length) return { round: 0, doneRoomIds: new Set() }
 
-  /* ── Actions ───────────────────────────────────────── */
-  async function markDone(taskType, person, dueDate) {
+    const roomIds = rooms.map(r => r.id)
+    const sorted  = [...roomComp].sort(
+      (a, b) => new Date(a.completed_at) - new Date(b.completed_at)
+    )
+
+    let round          = 0
+    let doneInRound    = new Set()
+
+    for (const comp of sorted) {
+      // Ignorar duplicados dentro de la misma ronda
+      if (doneInRound.has(comp.room_id)) continue
+      doneInRound.add(comp.room_id)
+      // Cuando todas las habitaciones están hechas → nueva ronda
+      if (roomIds.every(id => doneInRound.has(id))) {
+        round++
+        doneInRound = new Set()
+      }
+    }
+
+    return { round, doneRoomIds: doneInRound }
+  })()
+
+  const { round: roomRound, doneRoomIds } = roomRoundData
+
+  function roomPersonForRound(roomIndex) {
+    return personAtIndex(roomRound + roomIndex)
+  }
+
+  function isRoomDone(roomId) {
+    return doneRoomIds.has(roomId)
+  }
+
+  function lastRoomCompletion(roomId) {
+    return roomComp
+      .filter(c => c.room_id === roomId)
+      .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at))[0] ?? null
+  }
+
+  /* ── Actions */
+  async function markDone(taskType, person) {
     if (!person) return
     setLoading(taskType)
     const { error } = await supabase.from('completions').insert({
       task_type: taskType,
       person_id: person.id,
-      due_date:  dueDate,
+      due_date:  today,
     })
     if (error) console.error(error)
     setLoading(null)
@@ -266,15 +253,16 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
       task_type: 'room',
       room_id:   room.id,
       person_id: person.id,
-      due_date:  thisWeek,
+      due_date:  today,
     })
     if (error) console.error(error)
     setLoading(null)
     onRefresh()
   }
 
-  const roomsPending = rooms.some(r => !isRoomDone(r.id)) && people.length > 0
-  const hasPending   = (!dishDone || roomsPending) && people.length > 0
+  const myDishTurn  = currentPerson?.id === dishPerson?.id
+  const myRoomTurns = rooms.some((r, i) => !isRoomDone(r.id) && currentPerson?.id === roomPersonForRound(i)?.id)
+  const hasPending  = (myDishTurn || myRoomTurns) && people.length > 0
 
   return (
     <div className="dashboard">
@@ -284,7 +272,7 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
         <div className="pending-banner">⚡ Tienes tareas pendientes</div>
       )}
 
-      {/* ── Lavavajillas ── */}
+      {/* ── Lavavajillas */}
       <div className="task-with-vote">
         {dishSkipped && (
           <div className="skip-notice">
@@ -294,17 +282,22 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
         <TaskCard
           title="Recoger el lavavajillas"
           emoji="🍽️"
-          frequency="Tarea diaria"
+          frequency="Por turno"
           person={dishPerson}
-          isDone={dishDone}
-          streak={dishwasherStreak(dishComp)}
-          streakLabel="días seguidos"
+          isDone={false}
+          streak={dishComp.length}
+          streakLabel="veces completado"
           loading={loading === 'dishwasher'}
           noPeople={!people.length}
-          isMyTurn={currentPerson?.id === dishPerson?.id}
-          onMarkDone={() => markDone('dishwasher', dishPerson, today)}
+          isMyTurn={myDishTurn}
+          onMarkDone={() => markDone('dishwasher', dishPerson)}
         />
-        {!dishDone && getPeopleChain(adjustedDishBaseIdx, 'dishwasher', today).map(p => (
+        {lastDishComp && (
+          <div className="last-done-hint">
+            Último: {lastDishComp.people?.name ?? '?'} · {formatCompletedAt(lastDishComp.completed_at)}
+          </div>
+        )}
+        {getPeopleChain(dishStartIdx, 'dishwasher', today).map(p => (
           <VotePanel
             key={p.id}
             taskType="dishwasher"
@@ -318,12 +311,11 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
         ))}
       </div>
 
-      {/* ── Habitaciones ── */}
+      {/* ── Habitaciones */}
       {rooms.length > 0 && (
         <div className="rooms-week-section">
           <div className="rooms-week-header">
             <span className="rooms-week-title">Habitaciones</span>
-            <span className="rooms-week-range">{weekLabel(thisWeek)}</span>
           </div>
 
           {!people.length ? (
@@ -331,10 +323,11 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
           ) : (
             <div className="rooms-grid">
               {rooms.map((room, i) => {
-                const person   = roomPerson(i)
+                const person   = roomPersonForRound(i)
                 const done     = isRoomDone(room.id)
+                const lastComp = lastRoomCompletion(room.id)
                 const key      = `room_${room.id}`
-                const isMyRoom = currentPerson?.id === person?.id
+                const isMyRoom = !done && currentPerson?.id === person?.id
                 const initials = person?.name
                   ? person.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                   : '?'
@@ -353,6 +346,12 @@ export default function Dashboard({ people, rooms, completions, absenceVotes, cu
                       </div>
                       <div className="avatar-sm">{initials}</div>
                     </div>
+
+                    {lastComp && (
+                      <div className="last-done-hint">
+                        Último: {lastComp.people?.name ?? '?'} · {new Date(lastComp.completed_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                      </div>
+                    )}
 
                     {done ? (
                       <div className="room-done-state">✅ Hecho</div>

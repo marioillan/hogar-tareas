@@ -454,6 +454,29 @@ main {
   border-radius: 0;
 }
 
+.last-done-hint {
+  font-size: 0.72rem;
+  color: var(--text-3);
+  padding: 6px 16px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.task-with-vote .last-done-hint {
+  border-radius: 0;
+  border-bottom: none;
+}
+
+.room-card .last-done-hint {
+  font-size: 0.7rem;
+  color: var(--text-3);
+  padding: 2px 0 4px;
+  background: none;
+  border: none;
+}
+
 /* ── Vote panel ──────────────────────────────────────── */
 .vote-panel {
   background: var(--surface2);

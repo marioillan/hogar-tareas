@@ -23,7 +23,7 @@ export default function TaskCard({
         <>
           <div className="turn-row">
             <div className="turn-info">
-              <span className="turn-label">{isMyTurn ? '¡Hoy te toca a ti!' : 'Turno de'}</span>
+              <span className="turn-label">{isMyTurn ? '¡Te toca a ti!' : 'Turno de'}</span>
               <span className="turn-name">{isMyTurn ? 'Tú' : (person?.name ?? '—')}</span>
             </div>
             <div className="avatar">{initials}</div>
@@ -50,7 +50,7 @@ export default function TaskCard({
             </button>
           ) : (
             <div className="not-your-turn">
-              🔒 Hoy le toca a {person?.name}
+              🔒 Le toca a {person?.name}
             </div>
           )}
         </>
