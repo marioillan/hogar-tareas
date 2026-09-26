@@ -80,12 +80,25 @@ export default function App() {
   }
 
   const pickMember = async m => {
+    // Ya unido (otro navegador o móvil): se puede entrar también aquí tras confirmar
+    if (m.joined) {
+      ui.confirm({
+        title: `¿Eres ${m.name}?`,
+        body: `${m.name} ya se unió desde otro dispositivo. Entra solo si eres tú: la sesión quedará abierta en los dos.`,
+        ok: 'Sí, soy yo', icon: 'ph ph-devices',
+        onOk: () => {
+          enter({ groupId: pick.group.id, memberId: m.id })
+          ui.toast(`Bienvenido a ${pick.group.name}`)
+        },
+      })
+      return
+    }
     try {
       if (!(await api.joinAs(m.id))) {
-        // Alguien lo eligió justo antes: refrescamos la lista
-        ui.toast(`${m.name} ya lo ha elegido otra persona`)
-        setPick({ ...pick, members: await api.fetchMembers(pick.group.id) })
-        return
+        // Se unió justo antes (quizá desde otro dispositivo): refrescamos y se pide confirmación
+        const members = await api.fetchMembers(pick.group.id)
+        setPick({ ...pick, members })
+        return pickMember({ ...m, joined: true })
       }
       enter({ groupId: pick.group.id, memberId: m.id })
       ui.toast(`Bienvenido a ${pick.group.name}`)
