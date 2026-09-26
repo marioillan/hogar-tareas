@@ -1,12 +1,12 @@
 {
   "name": "Tareas del Hogar",
   "short_name": "Tareas",
-  "description": "Gestión de tareas del hogar con turnos rotativos",
+  "description": "Turnos del lavavajillas y rotación semanal de la limpieza",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#1a1a2e",
-  "background_color": "#0f0f17",
+  "theme_color": "#161826",
+  "background_color": "#161826",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]

@@ -5,56 +5,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server at http://localhost:5173
+npm run dev      # Dev server at http://localhost:5173 (add `-- --host` to test on a phone)
 npm run build    # Production build
 npm run preview  # Preview production build locally
 ```
 
-Requires a `.env` file at the root with:
-```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-```
+Requires a `.env` at the root with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. The database is created by running `schema.sql` in the Supabase SQL Editor.
 
 ## Architecture
 
-**Stack:** React 19 + Vite · Supabase (PostgreSQL + Realtime) · Deployed on Vercel
+**Stack:** React 18 + Vite · Supabase (PostgreSQL + Realtime) · Vercel. Design reference lives in `design_handoff_tareas_hogar/` (HTML prototype + README).
 
-All styles live in `src/index.css` — no CSS modules or Tailwind. The design uses CSS custom properties defined in `:root` (dark theme, `--primary` is purple `#c8b4ff`, `--accent` is amber). Fonts: DM Sans (body) + DM Serif Display (headings), loaded from Google Fonts in `index.html`.
+**Styles:** Nocturne design system in `src/nocturne.css` (tokens + `.btn`, `.card`, `.tag`, `.dialog`…); app keyframes (`dcRise`, `dcPop`, …) in `src/index.css`. Components use inline styles on top of those classes. Icons: `@phosphor-icons/web` classes (`ph ph-x` / `ph-fill ph-x`). Primary buttons are accent outline, never filled; Inter weight ≤ 500.
+
+**No login:** session is `{ groupId, memberId }` in `localStorage` (`hogar_session`). Groups are joined via a 6-char code, then picking a member created by the admin.
 
 ### Data flow
 
-`App.jsx` is the single data-fetching layer. It fetches all data on mount (and on `onRefresh` calls) and passes it down as props. There is no client-side state library. Children never fetch directly — they receive data and call `onRefresh()` after mutations, which re-fetches everything.
+- `src/lib/api.js` — every Supabase call (tables + RPCs `create_group`, `mark_dish`).
+- `src/hooks/useGroupData.js` — loads all group data and refetches on Realtime changes (per-mount unique channel topic).
+- `src/App.jsx` — screen flow (welcome → create/created or join → pick → app) and global overlays exposed as `ui` (`toast`, `burst`, `confirm`, `withLoading`).
+- `src/components/GroupApp.jsx` — derives `ctx` (turns, rotation, permissions) and all `actions`; renders header, bottom nav and tabs `TodayTab`, `CleaningTab`, `HistoryTab`, `GroupTab`.
 
-`App.jsx` also sets up a Supabase Realtime channel (`completions-notify`) to push browser notifications to other logged-in users when someone marks a task done.
+### Turn logic (`src/lib/logic.js`)
 
-### Auth
-
-Simple username + bcrypt password stored in `people.password_hash`. On login, `localStorage` stores the person's UUID as `hogar_person_id`. `Login.jsx` handles both login and registration (registration can also claim an existing rotation slot that has no password yet).
-
-### Turn rotation logic
-
-**Dishwasher (daily):** `turnIndex = daysSinceEpoch % people.length` where epoch is `2025-01-06`. The index maps into the `people` array sorted by `order_index`.
-
-**Rooms (weekly):** `turnIndex = weekNumber + roomIndex`. Each room gets a different person each week based on its position in the list.
-
-Both task types support **absence voting**: users can vote that someone is absent (`absence_votes` table). If more than half the people vote someone absent, that person is skipped and the next in rotation takes over. This logic is computed client-side in `Dashboard.jsx` (`getEffectivePerson`, `isVotedAbsent`).
-
-### Database tables
-
-- `people` — `id, name, order_index, password_hash, created_at`
-- `rooms` — `id, name, emoji, order_index, created_at`
-- `completions` — `id, task_type ('dishwasher'|'room'), person_id, room_id, due_date, completed_at`
-- `absence_votes` — `id, task_type, due_date, target_person_id, voter_person_id, is_absent`
-
-### Component responsibilities
-
-| File | Role |
-|------|------|
-| `App.jsx` | Auth gate, data fetching, Realtime listener, tab navigation |
-| `Dashboard.jsx` | Turn calculation, mark-done actions, vote casting, renders TaskCard + room grid |
-| `TaskCard.jsx` | Presentational card for the dishwasher task |
-| `History.jsx` | Filtered list + stats from passed-in completions |
-| `PeopleManager.jsx` | Add/remove/reorder people, updates `order_index` via swap |
-| `RoomsManager.jsx` | Add/remove/reorder rooms |
-| `Login.jsx` | Login + registration form with bcrypt |
+- **Dishwasher:** `dishInfo` — next turn is the non-skipped member with fewest `dish_log` entries, tie → oldest last turn, tie → `order_index`. One entry per day enforced by `unique(group_id, done_date)` (Madrid date); `23505` means already done today.
+- **Weekly cleaning:** room `i` in week `w` → `rotations.order_ids[(i + w) % n]`; extra people rest.
+- Admin-only: start/reset rotation, manual order, next week, mark others' rooms, undo last dish entry, add members/rooms. Admin can preview the member view.
