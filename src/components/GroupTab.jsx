@@ -19,7 +19,7 @@ function AddRow({ placeholder, onAdd }) {
   )
 }
 
-export default function GroupTab({ ctx, actions, copyLabel, onCopy, onLogout }) {
+export default function GroupTab({ ctx, actions, copyLabel, onCopy, onLeave }) {
   const { group, members, rooms, me, isAdmin, realAdmin, previewMember } = ctx
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, animation: 'dcRise .35s ease both' }}>
@@ -70,7 +70,7 @@ export default function GroupTab({ ctx, actions, copyLabel, onCopy, onLogout }) 
         </div>
       )}
 
-      <button className="btn btn-secondary" style={{ minHeight: 44, alignSelf: 'flex-start' }} onClick={onLogout}><i className="ph ph-sign-out" />Salir del grupo</button>
+      <button className="btn btn-secondary" style={{ minHeight: 44, alignSelf: 'flex-start' }} onClick={onLeave}><i className="ph ph-sign-out" />Salir del grupo</button>
     </div>
   )
 }

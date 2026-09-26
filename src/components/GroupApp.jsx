@@ -21,7 +21,7 @@ function notify(title, body) {
   try { new Notification(title, { body, icon: '/icon.svg' }) } catch { /* algunos móviles solo permiten notificar vía SW */ }
 }
 
-export default function GroupApp({ session, ui, onLogout, copyLabel, onCopy }) {
+export default function GroupApp({ session, ui, onLogout, onLeave, copyLabel, onCopy }) {
   const { groupId, memberId } = session
   const [tab, setTab] = useState('hoy')
   const [preview, setPreview] = useState(false)
@@ -216,6 +216,12 @@ export default function GroupApp({ session, ui, onLogout, copyLabel, onCopy }) {
       ui.toast(ctx.previewMember ? 'Vuelves a la vista de administrador' : 'Viendo la app como integrante')
       setPreview(p => !p); setTab('hoy'); setManual(null)
     },
+    leave: () => ui.confirm({
+      title: '¿Salir del grupo?',
+      body: `Tu nombre (${me.name}) quedará libre para que puedas volver a elegirlo al entrar con el código, en este u otro móvil.`,
+      ok: 'Sí, salir', icon: 'ph ph-sign-out',
+      onOk: onLeave,
+    }),
     goTab: id => { setTab(id); window.scrollTo({ top: 0, behavior: 'smooth' }) },
   }
 
@@ -245,7 +251,7 @@ export default function GroupApp({ session, ui, onLogout, copyLabel, onCopy }) {
         {tab === 'hoy' && <TodayTab {...props} />}
         {tab === 'tareas' && <CleaningTab {...props} manual={manual} />}
         {tab === 'historial' && <HistoryTab {...props} />}
-        {tab === 'grupo' && <GroupTab {...props} copyLabel={copyLabel} onCopy={() => onCopy(group.code)} onLogout={onLogout} />}
+        {tab === 'grupo' && <GroupTab {...props} copyLabel={copyLabel} onCopy={() => onCopy(group.code)} onLeave={actions.leave} />}
       </main>
 
       <nav aria-label="Secciones" style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, display: 'flex', padding: '6px 8px calc(8px + env(safe-area-inset-bottom))', background: 'color-mix(in srgb, var(--color-bg) 86%, transparent)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', boxShadow: '0 -1px 0 var(--color-neutral-900)', zIndex: 10 }}>

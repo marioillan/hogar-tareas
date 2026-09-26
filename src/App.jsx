@@ -54,6 +54,12 @@ export default function App() {
     api.saveSession(null); setSession(null); setScreen('welcome'); setPick(null)
   }, [])
 
+  // "Salir del grupo": además de cerrar la sesión, libera el nombre para poder volver a elegirlo
+  const leave = async () => {
+    try { await api.leaveMember(session.memberId) } catch (e) { console.error(e) }
+    logout()
+  }
+
   const createGroup = async (groupName, adminName, members, rooms) => {
     setCreating(true)
     try {
@@ -75,7 +81,12 @@ export default function App() {
 
   const pickMember = async m => {
     try {
-      await api.joinAs(m.id)
+      if (!(await api.joinAs(m.id))) {
+        // Alguien lo eligió justo antes: refrescamos la lista
+        ui.toast(`${m.name} ya lo ha elegido otra persona`)
+        setPick({ ...pick, members: await api.fetchMembers(pick.group.id) })
+        return
+      }
       enter({ groupId: pick.group.id, memberId: m.id })
       ui.toast(`Bienvenido a ${pick.group.name}`)
     } catch (e) {
@@ -97,7 +108,7 @@ export default function App() {
         {screen === 'join' && <JoinGroup onBack={() => setScreen('welcome')} onSubmit={findGroup} />}
         {screen === 'pick' && pick && <PickMember group={pick.group} members={pick.members} onBack={() => setScreen('join')} onPick={pickMember} />}
         {screen === 'app' && session && (
-          <GroupApp key={`${session.groupId}:${session.memberId}`} session={session} ui={ui} onLogout={logout} copyLabel={copyLabel} onCopy={copyCode} />
+          <GroupApp key={`${session.groupId}:${session.memberId}`} session={session} ui={ui} onLogout={logout} onLeave={leave} copyLabel={copyLabel} onCopy={copyCode} />
         )}
       </div>
 

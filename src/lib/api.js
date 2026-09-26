@@ -30,8 +30,15 @@ export async function fetchMembers(groupId) {
   return ok(await supabase.from('members').select('*').eq('group_id', groupId).order('order_index'))
 }
 
+// Devuelve false si otra persona ya ha elegido ese nombre
 export async function joinAs(memberId) {
-  ok(await supabase.from('members').update({ joined: true, joined_at: new Date().toISOString() }).eq('id', memberId).eq('joined', false))
+  const rows = ok(await supabase.from('members').update({ joined: true, joined_at: new Date().toISOString() }).eq('id', memberId).eq('joined', false).select('id'))
+  return rows.length > 0
+}
+
+// Libera el nombre para que otra persona (o la misma en otro móvil) pueda elegirlo
+export async function leaveMember(memberId) {
+  ok(await supabase.from('members').update({ joined: false, joined_at: null }).eq('id', memberId))
 }
 
 export async function fetchGroupData(groupId) {
